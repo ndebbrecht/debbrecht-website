@@ -1,0 +1,31 @@
+stages:
+  - deploy
+
+deploy_to_strato:
+  stage: deploy
+  image: alpine:latest
+  only:
+    - main
+  before_script:
+    # Install rsync and openssh
+    - apk add --no-cache rsync openssh-client
+    # Setup SSH
+    - mkdir -p ~/.ssh
+    - echo "$STRATO_SSH_KEY" > ~/.ssh/deploy_key
+    - chmod 600 ~/.ssh/deploy_key
+    - ssh-keyscan -H $STRATO_HOST >> ~/.ssh/known_hosts 2>/dev/null || true
+  script:
+    # Deploy via rsync, preserving var/ directory
+    - |
+      rsync -avz --delete \
+        --exclude='.git' \
+        --exclude='.gitlab-ci.yml' \
+        --exclude='.github' \
+        --exclude='*.md' \
+        -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+        ./ $STRATO_USER@$STRATO_HOST:homepage/debbrecht-website/
+  environment:
+    name: production
+    url: https://www.debbrecht.com
+  tags:
+    - docker
